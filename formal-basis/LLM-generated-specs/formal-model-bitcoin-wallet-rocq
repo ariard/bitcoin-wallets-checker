@@ -1,0 +1,88 @@
+(* ============================================================= *)
+(*  Security of a Bitcoin wallet, Dolev-Yao model.               *)
+(*  Inspired by: Turuani, Voegtlin, Rusinowitch,                 *)
+(*  "Automated Verification of Electrum Wallet" (hal-01256397).  *)
+(*  One page, verifiable with Rocq:  `rocq c wallet.v`            *)
+(*  (Rocq >= 9: replace the Require line with                    *)
+(*   `From Stdlib Require Import List.`)                          *)
+(* ============================================================= *)
+
+Require Import List.
+Import ListNotations.
+
+Parameter skA : nat.  (* wallet's seed / secret key            *)
+
+(* --- Model terms (messages on the network) --- *)
+Inductive term : Type :=
+| pub (sk : nat)               (* public key = address             *)
+| tx  (id : nat)               (* unique payload of a transaction  *)
+| sec (sk : nat)               (* secret key (the seed)            *)
+| sg  (m : term) (sk : nat).   (* signature of m under sk          *)
+
+(* --- Traces of publicly observed events --- *)
+Inductive evt : Type :=
+| Leak (x : nat)   (* leak of a secret, e.g. password/seed      *)
+| Sign (id : nat). (* honest signature issued by the wallet      *)
+
+(* --- Dolev-Yao intruder knowledge, closure of the trace ---
+   The blockchain is public: keys and payloads are known to all.
+   A secret is known only if it has leaked; any signature requires
+   knowledge of the secret key (Dolev-Yao unforgeability).
+   No replay: each payload tx id is unique.                       *)
+Inductive knows (tr : list evt) : term -> Prop :=
+| k_pub  : forall k,             knows tr (pub k)
+| k_tx   : forall i,             knows tr (tx i)
+| k_sec  : forall x, In (Leak x) tr    -> knows tr (sec x)
+| k_signed:forall i, In (Sign i) tr    -> knows tr (sg (tx i) skA)
+| k_mk   : forall m k, knows tr (sec k) -> knows tr (sg m k).
+
+(* Payment accepted by the network on behalf of the wallet:
+   spending from address (pub skA) requires sg (tx id) skA.      *)
+Definition accepted (tr : list evt) (id : nat) : Prop :=
+  knows tr (sg (tx id) skA).
+
+Lemma secret_needs_leak : forall tr k,
+  knows tr (sec k) -> In (Leak k) tr.
+Proof. intros tr k H; inversion H; assumption. Qed.
+
+(* ============ MAIN THEOREM ============ *)
+(* Any accepted payment from the wallet was either signed by the
+   wallet itself, or was enabled by a leak of the seed.           *)
+Theorem wallet_secure : forall tr id,
+  accepted tr id -> In (Sign id) tr \/ In (Leak skA) tr.
+Proof.
+  intros tr id H. unfold accepted in H.
+  inversion H; subst.
+  - left; assumption.
+  - right. apply secret_needs_leak. assumption.
+Qed.
+
+(* --- Corollary: authorization / loss of funds --- *)
+Fixpoint spend (tr : list evt) : list nat :=
+  match tr with
+  | []            => []
+  | Leak _ :: t   => spend t
+  | Sign i :: t   => i :: spend t
+  end.
+
+Lemma signed_in_spend : forall tr id,
+  In (Sign id) tr -> In id (spend tr).
+Proof.
+  induction tr as [|[x|j] t IH]; intros id H; simpl.
+  - inversion H.
+  - destruct H as [E|H]; [inversion E|]; apply IH, H.
+  - destruct H as [E|H].
+    + inversion E; subst; left; reflexivity.
+    + right; apply IH, H.
+Qed.
+
+(* If the seed never leaks, any accepted payment necessarily
+   appears in the list of honestly signed payments: the intruder
+   cannot spend the wallet's funds.                              *)
+Corollary no_unauthorized_spend : forall tr id,
+  ~ In (Leak skA) tr -> accepted tr id -> In id (spend tr).
+Proof.
+  intros tr id Hnl Hac. destruct (wallet_secure tr id Hac).
+  - apply signed_in_spend, H.
+  - contradiction.
+Qed.
