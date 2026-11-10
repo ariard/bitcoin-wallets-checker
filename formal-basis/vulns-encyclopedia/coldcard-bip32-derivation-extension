@@ -1,0 +1,12 @@
+
+BIP 32 derivation path attack.
+
+
+## Learning 
+
+A Wallet MUST restrict the total keypath space.
+ 
+
+## Sources
+
+- https://thecharlatan.ch/Ransom-Coldcard/ 

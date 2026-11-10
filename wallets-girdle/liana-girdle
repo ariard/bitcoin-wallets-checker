@@ -1,0 +1,51 @@
+
+## Config
+
+The Liana core logic can be accessed by CLI through the Liana daemon.
+
+This can be tested on a Ubuntu host with basic config.
+
+
+## Coverage
+
+- createspend
+
+
+
+
+
+## Commands Description
+
+## `createspend`
+
+Create a transaction spending one or more of our coins. All coins must exist and not be spent.
+
+#### Request
+
+| Field            | Type              | Description                                                       |
+| ---------------- | ----------------- | ----------------------------------------------------------------- |
+| `destinations`   | object            | Map from Bitcoin address to value.                                |
+| `outpoints`      | list of string    | List of the coins to be spent, as `txid:vout`.                    |
+| `feerate`        | integer           | Target feerate for the transaction, in satoshis per virtual byte. |
+| `change_address` | string            | Address to be used for leftover amount, if any.                   |
+
+#### Response
+
+If the spend is created successfully, the following response will be received:
+
+| Field          | Type              | Description                                          |
+| -------------- | ----------------- | ---------------------------------------------------- |
+| `psbt`         | string            | PSBT of the spending transaction, encoded as base64. |
+| `warnings`     | list of string    | Warnings, if any, generated during spend creation.   |
+
+If there are insufficient funds to create the required spend, then the following response will be received:
+
+| Field          | Type              | Description                                          |
+| -------------- | ----------------- | ---------------------------------------------------- |
+| `missing`      | integer           | Additional sats required to create the spend.        |
+
+ 
+## Sources
+ 
+- https://github.com/wizardsardine/liana/blob/master/doc/API.md
+- manual analysis notes
