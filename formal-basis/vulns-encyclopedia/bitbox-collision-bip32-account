@@ -1,0 +1,11 @@
+
+
+## Learning
+
+The chaincode SHOULD be an unrelated 32-bytes secret.
+
+The chaincode SHOULD come from a source of entropy not related to the derivation tree.
+
+## Source
+
+- https://saleemrashid.com/2018/11/26/breaking-into-bitbox/
